@@ -4,12 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useDraw } from '../hooks/useDraw';
 import Papa from 'papaparse'; // For parsing CSV files
 
-// Enum to distinguish drawing tools
-enum Tool {
-  Brush = "brush",
-  PaintBucket = "paintBucket",
-}
-
 // Predefined set of colors for the palette
 const colors = [
   '#FF5733', '#C70039', '#900C3F', '#581845',
@@ -29,7 +23,6 @@ const Page: React.FC<pageProps> = () => {
   const { canvasRef, onMouseDown, clear } = useDraw(drawLine);
   const [isClient, setIsClient] = useState<boolean>(false);
   const [brushSize, setBrushSize] = useState<number>(5);
-  const [currentTool, setCurrentTool] = useState<Tool>(Tool.Brush);
   const [copySuccess, setCopySuccess] = useState('');
 
   const selectedStyle = {
@@ -158,77 +151,6 @@ const Page: React.FC<pageProps> = () => {
            Math.abs(startColor[3] - fillColor[3]) <= tolerance;
   }
   
-  function floodFill(ctx: CanvasRenderingContext2D, x: number, y: number, fillColor: string) {
-    let targetColor = ctx.getImageData(x, y, 1, 1).data;
-    let startColor = [targetColor[0], targetColor[1], targetColor[2], targetColor[3]];
-    let newColor = hexToRgba(fillColor);
-    let canvasWidth = ctx.canvas.width;
-    let canvasHeight = ctx.canvas.height;
-    let pixelStack: [number, number][] = [[x, y]];
-    let imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
-    let pixels = imageData.data;
-
-    while (pixelStack.length) {
-        let newPos = pixelStack.pop();
-        if (!newPos) {
-            continue; // Skip this iteration if newPos is undefined
-        }
-        
-        let x = newPos[0];
-        let y = newPos[1];
-        let pixelPos = (y * canvasWidth + x) * 4;
-        
-        // Move up until we find a pixel that doesn't match the startColor
-        while (y >= 0 && colorMatch([pixels[pixelPos], pixels[pixelPos+1], pixels[pixelPos+2], pixels[pixelPos+3]], startColor)) {
-            y--;
-            pixelPos -= canvasWidth * 4;
-        }
-        
-        pixelPos += canvasWidth * 4;
-        y++;
-        let reachLeft = false;
-        let reachRight = false;
-
-        // Check each pixel in the current row
-        while (y < canvasHeight && colorMatch([pixels[pixelPos], pixels[pixelPos+1], pixels[pixelPos+2], pixels[pixelPos+3]], startColor)) {
-            pixels[pixelPos] = newColor.r;
-            pixels[pixelPos+1] = newColor.g;
-            pixels[pixelPos+2] = newColor.b;
-            pixels[pixelPos+3] = newColor.a;
-
-            if (x > 0) {
-                if (colorMatch([pixels[pixelPos - 4], pixels[pixelPos-3], pixels[pixelPos-2], pixels[pixelPos-1]], startColor)) {
-                    if (!reachLeft) {
-                        pixelStack.push([x - 1, y]);
-                        reachLeft = true;
-                    }
-                } else if (reachLeft) {
-                    reachLeft = false;
-                }
-            }
-
-            if (x < canvasWidth - 1) {
-                if (colorMatch([pixels[pixelPos + 4], pixels[pixelPos+5], pixels[pixelPos+6], pixels[pixelPos+7]], startColor)) {
-                    if (!reachRight) {
-                        pixelStack.push([x + 1, y]);
-                        reachRight = true;
-                    }
-                } else if (reachRight) {
-                    reachRight = false;
-                }
-            }
-
-            y++;
-            pixelPos += canvasWidth * 4;
-        }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-}
-  
-
-
-
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement, MouseEvent>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -238,17 +160,8 @@ const Page: React.FC<pageProps> = () => {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-  
-    if (currentTool === Tool.PaintBucket) {
-      floodFill(ctx, x, y, color);
-    }
   };
-  
-  /*
-  const toggleToolbar = () => {
-    setIsToolbarVisible(!isToolbarVisible);
-  };
-  */
+
 
   const saveImage = () => {
     const canvas = canvasRef.current;
@@ -349,20 +262,6 @@ const Page: React.FC<pageProps> = () => {
             onChange={(e) => setBrushSize(parseInt(e.target.value))}
             style={{ width: '100%' }}
           />
-          <button
-            type='button' className={'p-2 rounded-md border border-black tool-button '}
-            onClick={() => setCurrentTool(Tool.Brush)} 
-            style={currentTool === Tool.Brush ? selectedStyle : {}}
-          >
-            Brush
-          </button>
-          <button
-            type='button' className={'p-2 rounded-md border border-black tool-button '} 
-            onClick={() => setCurrentTool(Tool.PaintBucket)} 
-            style={currentTool === Tool.PaintBucket ? selectedStyle : {}}
-          >
-            Paint Bucket
-          </button>
         </div>
 
         {/* Canvas - Centered in the grid */}
